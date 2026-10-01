@@ -202,7 +202,7 @@ def render_excel_table(df):
         html += '</tr>'
 
     html += '</tbody></table></div>'
-    return html
+    return html.replace('\n', ' ')
 
 
 # ---------------------------------------------------------
@@ -381,7 +381,7 @@ def render_resultados_table(df):
         html += '</tr>'
 
     html += '</tbody></table></div>'
-    return html
+    return html.replace('\n', ' ')
 
 
 # ---------------------------------------------------------
@@ -495,9 +495,10 @@ def render_payment_table(df, title="📋 Detalle de Pagos Realizados"):
 .row-pay-total .lbl-sticky-col { background-color: #133322 !important; color: #FFFFFF !important; }
 </style>"""
 
-    html = f'<div style="margin-top: 5px; margin-bottom: 25px;">'
+    # INSERTAMOS EL CSS PRIMERO PARA EVITAR QUE STREAMLIT LO PARSEE COMO MARKDOWN
+    html = f'{css}<div style="margin-top: 5px; margin-bottom: 25px;">'
     html += f'<h5 style="color: #00D1B2 !important; margin-bottom: 8px; font-size: 0.95rem; font-weight: 700;">{title}</h5>'
-    html += f'{css}<div class="tbl-pay-wrapper"><table class="tbl-pay-sticky">'
+    html += f'<div class="tbl-pay-wrapper"><table class="tbl-pay-sticky">'
     
     html += '<thead><tr>'
     
@@ -602,7 +603,9 @@ def render_payment_table(df, title="📋 Detalle de Pagos Realizados"):
         html += '</tr>'
 
     html += '</tbody></table></div></div>'
-    return html
+    
+    # REEMPLAZAR SALTOS DE LÍNEA PARA EVITAR INYECCIÓN DE MARKDOWN EN LA TABLA
+    return html.replace('\n', ' ')
 
 
 # ---------------------------------------------------------
