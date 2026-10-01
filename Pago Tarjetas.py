@@ -385,7 +385,7 @@ def render_resultados_table(df):
 
 
 # ---------------------------------------------------------
-# HELPER: TABLA DETALLE DE PAGOS POR TARJETA (TÍTULOS EN 2 LÍNEAS)
+# HELPER: TABLA DETALLE DE PAGOS POR TARJETA (2D STICKY OPTIMIZADA)
 # ---------------------------------------------------------
 def render_payment_table(df, title="📋 Detalle de Pagos Realizados"):
     if df is None or df.empty:
@@ -396,11 +396,108 @@ def render_payment_table(df, title="📋 Detalle de Pagos Realizados"):
     min_real = real_vals.min() if not real_vals.empty else None
     has_highlights = (max_real is not None and min_real is not None and max_real != min_real)
 
+    css = """<style>
+/* Contenedor principal con scroll 2D */
+.tbl-pay-wrapper {
+    max-height: 480px;
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1.5px solid #107C41;
+    border-radius: 10px;
+    background-color: #14171E;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    margin-top: 5px;
+    margin-bottom: 25px;
+    display: block;
+    position: relative;
+}
+
+/* Configuración estricta de la tabla */
+.tbl-pay-sticky {
+    width: 100%;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 0.85rem;
+    color: #FAFAFA;
+    margin: 0;
+}
+
+/* Encabezados (TH) */
+.tbl-pay-sticky th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 20 !important;
+    background-color: #0D5C30 !important;
+    color: #FFFFFF !important;
+    border-bottom: 2px solid #1B9E52 !important;
+    padding: 10px 4px !important;
+    text-align: center !important;
+    font-weight: 800 !important;
+    font-size: 0.80rem !important;
+    line-height: 1.25 !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    min-width: 85px;
+}
+
+/* Esquina superior izquierda (TH:first-child - Fecha de Pago) */
+.tbl-pay-sticky th:first-child {
+    position: sticky !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 50 !important;
+    width: 110px !important;
+    min-width: 110px !important;
+    max-width: 110px !important;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.3) !important;
+}
+
+/* Celdas de datos normales (TD) */
+.tbl-pay-sticky td {
+    position: static !important;
+    z-index: auto !important;
+    padding: 8px 4px !important;
+    border-bottom: 1px solid #2A323D !important;
+    vertical-align: middle !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+}
+
+/* Columna 1 fija (.lbl-sticky-col - Fecha de Pago) */
+.tbl-pay-sticky .lbl-sticky-col {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 30 !important;
+    font-weight: 700 !important;
+    width: 110px !important;
+    min-width: 110px !important;
+    max-width: 110px !important;
+    box-shadow: 3px 0 6px rgba(0,0,0,0.4) !important;
+    background-clip: padding-box !important;
+}
+
+/* Clases CSS de colores por fila (sin inline-styles en fondo) */
+.row-pay-even td { background-color: #1A1D24 !important; color: #FAFAFA; }
+.row-pay-even .lbl-sticky-col { background-color: #1A1D24 !important; }
+
+.row-pay-odd td { background-color: #222733 !important; color: #FAFAFA; }
+.row-pay-odd .lbl-sticky-col { background-color: #222733 !important; }
+
+.row-pay-max td { background-color: #524300 !important; color: #FFF176 !important; font-weight: bold; }
+.row-pay-max .lbl-sticky-col { background-color: #524300 !important; color: #FFF176 !important; }
+
+.row-pay-min td { background-color: #4A151B !important; color: #FF8A80 !important; font-weight: bold; }
+.row-pay-min .lbl-sticky-col { background-color: #4A151B !important; color: #FF8A80 !important; }
+
+.row-pay-total td { background-color: #133322 !important; color: #FFFFFF !important; font-weight: bold; border-top: 2px solid #107C41 !important; }
+.row-pay-total .lbl-sticky-col { background-color: #133322 !important; color: #FFFFFF !important; }
+</style>"""
+
     html = f'<div style="margin-top: 5px; margin-bottom: 25px;">'
     html += f'<h5 style="color: #00D1B2 !important; margin-bottom: 8px; font-size: 0.95rem; font-weight: 700;">{title}</h5>'
-    
-    html += '<div style="overflow: auto; max-height: 480px; border-radius: 10px; border: 1.5px solid #107C41; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);">'
-    html += '<table style="width:100%; border-collapse: separate; border-spacing: 0; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: 0.85rem; color: #FAFAFA;">'
+    html += f'{css}<div class="tbl-pay-wrapper"><table class="tbl-pay-sticky">'
     
     html += '<thead><tr>'
     
@@ -418,7 +515,7 @@ def render_payment_table(df, title="📋 Detalle de Pagos Realizados"):
         col_str = str(col).strip()
         col_title = header_map.get(col_str, col_str.replace(" ", "<br>", 1) if " " in col_str else col_str)
 
-        html += f'<th style="position: sticky; top: 0; z-index: 20; background: #0D5C30; padding: 10px 4px; border-bottom: 2px solid #1B9E52; text-align: center; font-weight: 800; font-size: 0.80rem; line-height: 1.25; vertical-align: middle; color: #FFFFFF;">{col_title}</th>'
+        html += f'<th>{col_title}</th>'
     html += '</tr></thead><tbody>'
 
     totals = {col: 0.0 for col in df.columns}
@@ -432,24 +529,18 @@ def render_payment_table(df, title="📋 Detalle de Pagos Realizados"):
         is_min = has_highlights and pd.notnull(v_real) and (v_real == min_real)
 
         if is_max:
-            row_bg = "#524300"
-            row_color = "#FFF176"
-            font_w = "bold"
+            row_class = "row-pay-max"
             border_left = "4px solid #FFEE58"
         elif is_min:
-            row_bg = "#4A151B"
-            row_color = "#FF8A80"
-            font_w = "bold"
+            row_class = "row-pay-min"
             border_left = "4px solid #EF5350"
         else:
-            row_bg = "#1A1D24" if idx % 2 == 0 else "#222733"
-            row_color = "#FAFAFA"
-            font_w = "normal"
+            row_class = "row-pay-even" if idx % 2 == 0 else "row-pay-odd"
             border_left = "none"
 
-        html += f'<tr style="background-color: {row_bg}; color: {row_color}; font-weight: {font_w}; border-left: {border_left};">'
+        html += f'<tr class="{row_class}" style="border-left: {border_left};">'
         
-        for col in df.columns:
+        for c_idx, col in enumerate(df.columns):
             val = row[col]
             
             if col == "Fecha de Pago":
@@ -475,24 +566,27 @@ def render_payment_table(df, title="📋 Detalle de Pagos Realizados"):
                 val_str = str(val)
 
             if is_max:
-                style_extra = " color: #FFF176; font-weight: 700;"
+                style_extra = " color: #FFF176 !important; font-weight: 700;"
             elif is_min:
-                style_extra = " color: #FF8A80; font-weight: 700;"
+                style_extra = " color: #FF8A80 !important; font-weight: 700;"
             else:
                 style_extra = ""
                 if col in ["Ganancia Real", "Ganancia Teórica", "Maxidólares"]:
-                    style_extra = " color: #00E676; font-weight: 600;"
+                    style_extra = " color: #00E676 !important; font-weight: 600;"
                 elif col == "Valor Pagado":
                     style_extra = " font-weight: 600;"
 
-            html += f'<td style="padding: 8px 4px; border-bottom: 1px solid #2A323D; text-align: center; vertical-align: middle;{style_extra}">{val_str}</td>'
+            if c_idx == 0:
+                html += f'<td class="lbl-sticky-col" style="{style_extra}">{val_str}</td>'
+            else:
+                html += f'<td style="{style_extra}">{val_str}</td>'
         
         html += '</tr>'
         count += 1
 
     if count > 0:
-        html += '<tr style="background-color: #133322; font-weight: bold; border-top: 2px solid #107C41; color: #FFFFFF;">'
-        for col in df.columns:
+        html += '<tr class="row-pay-total">'
+        for c_idx, col in enumerate(df.columns):
             if col == "Fecha de Pago":
                 val_str = "TOTAL"
             elif col in curr_cols:
@@ -500,8 +594,11 @@ def render_payment_table(df, title="📋 Detalle de Pagos Realizados"):
             else:
                 val_str = "-"
             
-            style_extra = " color: #00E676;" if col in curr_cols else ""
-            html += f'<td style="padding: 10px 4px; text-align: center; vertical-align: middle;{style_extra}">{val_str}</td>'
+            style_extra = " color: #00E676 !important;" if col in curr_cols else ""
+            if c_idx == 0:
+                html += f'<td class="lbl-sticky-col" style="{style_extra}">{val_str}</td>'
+            else:
+                html += f'<td style="{style_extra}">{val_str}</td>'
         html += '</tr>'
 
     html += '</tbody></table></div></div>'
