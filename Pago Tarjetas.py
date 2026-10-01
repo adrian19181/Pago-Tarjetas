@@ -206,16 +206,117 @@ def render_excel_table(df):
 
 
 # ---------------------------------------------------------
-# HELPER: TABLA RESUMEN DE RESULTADOS (TÍTULOS EN 2 LÍNEAS)
+# HELPER: TABLA RESUMEN DE RESULTADOS (2D STICKY OPTIMIZADA)
 # ---------------------------------------------------------
 def render_resultados_table(df):
     if df is None or df.empty:
         return ""
     
-    html = '<div style="overflow-x: auto; border-radius: 12px; border: 1.8px solid #107C41; margin-top: 10px; margin-bottom: 25px; box-shadow: 0 6px 20px rgba(0,0,0,0.6);">'
-    html += '<table style="width:100%; border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">'
-    
-    html += '<thead><tr style="background: linear-gradient(135deg, #0D5C30 0%, #107C41 100%); color: #FFFFFF;">'
+    css = """<style>
+/* Contenedor principal con scroll 2D */
+.tbl-res-wrapper {
+    max-height: 480px;
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1.8px solid #107C41;
+    border-radius: 12px;
+    background-color: #14171E;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+    margin-top: 10px;
+    margin-bottom: 25px;
+    display: block;
+    position: relative;
+}
+
+/* Configuración estricta de la tabla */
+.tbl-res-sticky {
+    width: 100%;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+}
+
+/* Encabezados (TH) */
+.tbl-res-sticky th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 20 !important;
+    background-color: #0D5C30 !important;
+    color: #FFFFFF !important;
+    border-bottom: 2.5px solid #1B9E52 !important;
+    padding: 10px 4px !important;
+    text-align: center !important;
+    font-weight: 800 !important;
+    font-size: 0.82rem !important;
+    line-height: 1.25 !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    min-width: 90px;
+}
+
+/* Esquina superior izquierda (TH:first-child) */
+.tbl-res-sticky th:first-child {
+    position: sticky !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 50 !important;
+    text-align: left !important;
+    width: 140px !important;
+    min-width: 140px !important;
+    max-width: 140px !important;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.3) !important;
+}
+
+/* Celdas de datos normales (TD) */
+.tbl-res-sticky td {
+    position: static !important;
+    z-index: auto !important;
+    padding: 9px 5px !important;
+    vertical-align: middle !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    font-family: monospace, sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+/* Columna 1 fija (.lbl-sticky-col) */
+.tbl-res-sticky .lbl-sticky-col {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 30 !important;
+    font-weight: 700 !important;
+    color: #FBBF24 !important;
+    font-size: 0.80rem !important;
+    line-height: 1.25 !important;
+    text-align: left !important;
+    width: 140px !important;
+    min-width: 140px !important;
+    max-width: 140px !important;
+    box-shadow: 3px 0 6px rgba(0,0,0,0.4) !important;
+    background-clip: padding-box !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Clases CSS de colores por fila (sin inline-styles en fondo) */
+.row-even td { background-color: #181C24 !important; border-top: 1px solid #262C38 !important; }
+.row-even .lbl-sticky-col { background-color: #181C24 !important; }
+
+.row-odd td { background-color: #1E222B !important; border-top: 1px solid #262C38 !important; }
+.row-odd .lbl-sticky-col { background-color: #1E222B !important; }
+
+.row-total-pagado td { background-color: #1E2A38 !important; border-top: 1.5px solid #38BDF8 !important; border-bottom: 1.5px solid #38BDF8 !important; }
+.row-total-pagado .lbl-sticky-col { background-color: #1E2A38 !important; }
+
+.row-neta td { background-color: #174D30 !important; border-top: 2px solid #00E676 !important; border-bottom: 2px solid #00E676 !important; }
+.row-neta .lbl-sticky-col { background-color: #174D30 !important; }
+</style>"""
+
+    html = f'{css}<div class="tbl-res-wrapper"><table class="tbl-res-sticky"><thead><tr>'
     for idx, col in enumerate(df.columns):
         if idx == 0:
             col_title = ""
@@ -223,8 +324,7 @@ def render_resultados_table(df):
             col_str = str(col).strip()
             col_title = col_str.replace(" ", "<br>", 1) if " " in col_str else col_str
 
-        align = "left" if idx == 0 else "center"
-        html += f'<th style="padding: 10px 4px; border-bottom: 2.5px solid #1B9E52; text-align: {align}; font-weight: 800; font-size: 0.82rem; line-height: 1.25; vertical-align: middle;">{col_title}</th>'
+        html += f'<th>{col_title}</th>'
     html += '</tr></thead><tbody>'
 
     first_col = df.columns[0]
@@ -235,26 +335,19 @@ def render_resultados_table(df):
         is_total_pagado = "valor total pagado" in row_title_raw.lower()
 
         if is_neta:
-            row_bg = "linear-gradient(135deg, #0F3822 0%, #174D30 100%)"
-            border_top = "2px solid #00E676"
-            border_bottom = "2px solid #00E676"
+            row_class = "row-neta"
         elif is_total_pagado:
-            row_bg = "#1E2A38"
-            border_top = "1.5px solid #38BDF8"
-            border_bottom = "1.5px solid #38BDF8"
+            row_class = "row-total-pagado"
         else:
-            row_bg = "#181C24" if idx % 2 == 0 else "#1E222B"
-            border_top = "1px solid #262C38"
-            border_bottom = "none"
+            row_class = "row-even" if idx % 2 == 0 else "row-odd"
 
-        html += f'<tr style="background: {row_bg}; border-top: {border_top}; border-bottom: {border_bottom};">'
+        html += f'<tr class="{row_class}">'
         
         for c_idx, col in enumerate(df.columns):
             val = row[col]
-            align = "left" if c_idx == 0 else "center"
 
             if c_idx == 0:
-                html += f'<td style="padding: 9px 6px; font-weight: 700; color: #FBBF24; font-size: 0.80rem; line-height: 1.25; vertical-align: middle;">{val}</td>'
+                html += f'<td class="lbl-sticky-col">{val}</td>'
             else:
                 if pd.isnull(val) or str(val).strip() in ["", "-", "None", "nan"]:
                     val_str = "-"
@@ -282,10 +375,8 @@ def render_resultados_table(df):
                     color_style = "color: #00E676; font-weight: 900; font-size: 1.05rem;"
                 elif is_total_pagado:
                     color_style = "color: #38BDF8; font-weight: 800; font-size: 1.00rem;"
-                else:
-                    color_style += " font-size: 0.95rem; font-weight: 700;"
 
-                html += f'<td style="padding: 9px 5px; text-align: {align}; font-family: monospace, sans-serif; vertical-align: middle; {color_style}">{val_str}</td>'
+                html += f'<td style="{color_style}">{val_str}</td>'
         
         html += '</tr>'
 
