@@ -8,6 +8,10 @@ import pandas as pd
 import plotly.express as px
 import requests
 import streamlit as st
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 # ---------------------------------------------------------
 # CONFIGURACIÓN DE PÁGINA
@@ -863,18 +867,243 @@ except Exception as e:
     st.error(f"Error al cargar la información desde Google Drive: {e}")
     st.stop()
 
-# ---------------------------------------------------------
-# CABECERA & BOTÓN REFRESCAR
-# ---------------------------------------------------------
-col_title, col_btn = st.columns([2.8, 1.2], vertical_alignment="center")
 
-with col_title:
-    st.markdown("<h3 style='margin: 0; color: #FFFFFF !important;'>💳 Pago Tarjetas (Ganancia USD)</h3>", unsafe_allow_html=True)
+# ---------------------------------------------------------
+# GENERADOR PDF
+# ---------------------------------------------------------
+def generar_pdf():
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+    )
+    styles = getSampleStyleSheet()
 
-with col_btn:
+    title_style = ParagraphStyle(
+        "DocTitle",
+        parent=styles["Heading1"],
+        fontName="Helvetica-Bold",
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor("#0F172A"),
+        alignment=1,
+        spaceAfter=10,
+    )
+
+    h2_style = ParagraphStyle(
+        "SectionHeading",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor("#0F172A"),
+        spaceBefore=12,
+        spaceAfter=6,
+    )
+
+    cell_style = ParagraphStyle(
+        "CellText",
+        fontName="Helvetica",
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor("#000000"),
+        alignment=1,
+    )
+
+    cell_bold = ParagraphStyle(
+        "CellBold",
+        fontName="Helvetica-Bold",
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor("#000000"),
+        alignment=1,
+    )
+
+    header_style = ParagraphStyle(
+        "HeaderStyle",
+        fontName="Helvetica-Bold",
+        fontSize=8,
+        leading=10,
+        textColor=colors.white,
+        alignment=1,
+    )
+
+    story = []
+
+    story.append(Paragraph("Pago Tarjetas (Ganancia USD)", title_style))
+    story.append(
+        Paragraph(
+            f"Reporte generado el {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}",
+            cell_style,
+        )
+    )
+    story.append(Spacer(1, 10))
+
+    def create_table_flowable(df_input):
+        if df_input is None or df_input.empty:
+            return Paragraph("Sin datos disponibles", cell_style)
+
+        table_data = []
+        headers = [
+            Paragraph(
+                str(col).replace("<br>", " ").replace(" ($)", "").replace("$", ""),
+                header_style,
+            )
+            for col in df_input.columns
+        ]
+        table_data.append(headers)
+
+        for row_idx, row in df_input.iterrows():
+            row_cells = []
+            for col_idx, val in enumerate(row):
+                if col_idx == 0:
+                    val_str = str(val).replace("<br>", " ")
+                    row_cells.append(Paragraph(val_str, cell_bold))
+                elif isinstance(val, (int, float)):
+                    col_name = str(df_input.columns[col_idx])
+                    if any(
+                        kw in col_name
+                        for kw in [
+                            "Total",
+                            "Valor",
+                            "Ganancia",
+                            "Diferencia",
+                            "Gastos",
+                            "Costo",
+                            "Impresión",
+                            "Transferencias",
+                            "Maxidólares",
+                            "Anualidad",
+                        ]
+                    ):
+                        formatted_val = f"${val:,.2f}"
+                    else:
+                        formatted_val = (
+                            f"{int(val):,}" if val == int(val) else f"{val:,}"
+                        )
+                    row_cells.append(Paragraph(formatted_val, cell_style))
+                else:
+                    val_str = str(val).replace("<br>", " ")
+                    row_cells.append(Paragraph(val_str, cell_style))
+            table_data.append(row_cells)
+
+        num_cols = len(df_input.columns)
+        col_width = 540.0 / num_cols if num_cols > 0 else 540.0
+
+        t = Table(table_data, colWidths=[col_width] * num_cols)
+        t_style = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#107C41")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#000000")),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]
+
+        for r_idx in range(1, len(table_data)):
+            bg_color = (
+                colors.HexColor("#E8F5E9")
+                if r_idx % 2 == 1
+                else colors.HexColor("#FFFDE7")
+            )
+            t_style.append(("BACKGROUND", (1, r_idx), (-1, r_idx), bg_color))
+            t_style.append(
+                ("BACKGROUND", (0, r_idx), (0, r_idx), colors.HexColor("#C8E6C9"))
+            )
+
+        t.setStyle(TableStyle(t_style))
+        return t
+
+    # 1. TASAS AUSTRO FUTURO
+    story.append(Paragraph("1. Tasas Austro Futuro", h2_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#0F172A"), spaceBefore=2, spaceAfter=8))
+    story.append(create_table_flowable(df_tasas))
+    story.append(Spacer(1, 10))
+
+    # 2. RESULTADOS PAGOS TODAS LAS TARJETAS
+    story.append(Paragraph("2. Resultados Pagos Todas Las Tarjetas", h2_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#0F172A"), spaceBefore=2, spaceAfter=8))
+    story.append(create_table_flowable(df_resultados))
+    story.append(Spacer(1, 10))
+
+    # 3. DETALLE POR TARJETA
+    story.append(Paragraph("3. Detalle por Tarjeta", h2_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#0F172A"), spaceBefore=2, spaceAfter=8))
+
+    for card_label, kpi_data in dict_kpis.items():
+        story.append(Paragraph(f"Tarjeta: {card_label}", ParagraphStyle("CardTitle", parent=cell_bold, fontSize=11, alignment=0)))
+        story.append(Spacer(1, 4))
+        
+        kpi_rows = [
+            [Paragraph("<b>Indicador</b>", header_style), Paragraph("<b>Valor</b>", header_style)],
+            [Paragraph("Día de Corte", cell_style), Paragraph(str(kpi_data.get("corte", "-")), cell_style)],
+            [Paragraph("Días Financ.", cell_style), Paragraph(str(kpi_data.get("dias", "-")), cell_style)],
+            [Paragraph("Total Pagos", cell_style), Paragraph(str(kpi_data.get("total_pagos", "-")), cell_style)],
+            [Paragraph("Menor Pago", cell_style), Paragraph(f"{kpi_data.get('menor', '-')} ({kpi_data.get('menor_fecha', '-')})", cell_style)],
+            [Paragraph("Mayor Pago", cell_style), Paragraph(f"{kpi_data.get('mayor', '-')} ({kpi_data.get('mayor_fecha', '-')})", cell_style)],
+            [Paragraph("Total Pagado", cell_style), Paragraph(str(kpi_data.get("total", "-")), cell_style)],
+            [Paragraph("Ganancia Real en Cuenta", cell_style), Paragraph(str(kpi_data.get("ganancia_real", "-")), cell_style)],
+            [Paragraph("Ganancia Teórica", cell_style), Paragraph(str(kpi_data.get("ganancia_teorica", "-")), cell_style)],
+            [Paragraph("Diferencia Real - Teórica", cell_style), Paragraph(str(kpi_data.get("dif_teorica_real", "-")), cell_style)],
+            [Paragraph("Gastos Impresión", cell_style), Paragraph(str(kpi_data.get("gastos_impresion", "-")), cell_style)],
+            [Paragraph("Gastos Transferencias", cell_style), Paragraph(str(kpi_data.get("gastos_transferencias", "-")), cell_style)],
+        ]
+        if kpi_data.get("maxidolares") is not None:
+            kpi_rows.append([Paragraph("Maxidólares", cell_style), Paragraph(str(kpi_data.get("maxidolares")), cell_style)])
+        if kpi_data.get("millas") is not None:
+            kpi_rows.append([Paragraph("Millas", cell_style), Paragraph(str(kpi_data.get("millas")), cell_style)])
+        if kpi_data.get("anualidad") is not None:
+            kpi_rows.append([Paragraph("Anualidad Tarjeta", cell_style), Paragraph(str(kpi_data.get("anualidad")), cell_style)])
+        kpi_rows.append([Paragraph("<b>Ganancia Total</b>", cell_bold), Paragraph(f"<b>{kpi_data.get('ganancia_total', '-')}</b>", cell_bold)])
+
+        t_kpi = Table(kpi_rows, colWidths=[200, 340])
+        t_kpi.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#107C41")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#000000")),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        story.append(t_kpi)
+        story.append(Spacer(1, 6))
+
+        tbl_data = dict_tables.get(card_label)
+        if tbl_data is not None and not tbl_data.empty:
+            story.append(Paragraph(f"Pagos Realizados - {card_label}", ParagraphStyle("PayTitle", parent=cell_bold, fontSize=9, alignment=0)))
+            story.append(Spacer(1, 3))
+            story.append(create_table_flowable(tbl_data))
+            story.append(Spacer(1, 8))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+# ---------------------------------------------------------
+# CABECERA & BOTONES REFRESCAR / PDF
+# ---------------------------------------------------------
+col_act, col_pdf = st.columns(2)
+with col_act:
     if st.button("🔄 Refrescar", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
+with col_pdf:
+    pdf_bytes = generar_pdf()
+    st.download_button(
+        label="📄 Exportar a PDF",
+        data=pdf_bytes,
+        file_name="Pago Tarjetas.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+    )
+
+st.markdown("<h3 style='margin: 10px 0; color: #FFFFFF !important;'>💳 Pago Tarjetas (Ganancia USD)</h3>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # 1. TABLA DINÁMICA: TASAS AUSTRO FUTURO
