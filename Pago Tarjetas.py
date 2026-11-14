@@ -1219,6 +1219,58 @@ if not df_resultados.empty:
             st.plotly_chart(fig_ganancia, use_container_width=True, config={'displayModeBar': False})
 
 # ---------------------------------------------------------
+# KPIs RESUMEN GENERAL (ENCIMA DE RESULTADOS TODAS LAS TARJETAS)
+# ---------------------------------------------------------
+if not df_resultados.empty:
+    col_first_res = df_resultados.columns[0]
+
+    def get_res_metric(keyword, col_name):
+        if col_name not in df_resultados.columns:
+            return 0.0
+        match = df_resultados[df_resultados[col_first_res].astype(str).str.contains(keyword, case=False, na=False)]
+        if not match.empty:
+            val = pd.to_numeric(match[col_name].values[0], errors="coerce")
+            return float(val) if pd.notnull(val) else 0.0
+        return 0.0
+
+    gan_neta_amex = get_res_metric("GANANCIA TOTAL", "American Express")
+    gan_neta_produ = get_res_metric("GANANCIA TOTAL", "Produbanco Mastercard")
+    gan_neta_total = get_res_metric("GANANCIA TOTAL", "Total")
+
+    gan_real_amex = get_res_metric("Ganancia Real", "American Express")
+    gan_real_produ = get_res_metric("Ganancia Real", "Produbanco Mastercard")
+    gan_real_total = get_res_metric("Ganancia Real", "Total")
+
+    maxidolares_produ = get_res_metric("Maxidólares", "Produbanco Mastercard")
+    gastos_transf_total = get_res_metric("Transferencias", "Total")
+
+    color_neta_amex = "#FF5252" if gan_neta_amex < 0 else "#00E676"
+    color_neta_produ = "#FF5252" if gan_neta_produ < 0 else "#00E676"
+    color_neta_total = "#FF5252" if gan_neta_total < 0 else "#00E676"
+
+    kpi_general_html = f"""<div class="kpi-container">
+<div class="kpi-title">📌 Resumen Ejecutivo General</div>
+<div class="kpi-subtitle">💰 Ganancia Total Neta</div>
+<div class="kpi-grid">
+<div class="kpi-card"><div class="kpi-label">Ganancia Total<br>Neta Amex</div><div class="kpi-val-real" style="color: {color_neta_amex};">${gan_neta_amex:.2f}</div></div>
+<div class="kpi-card"><div class="kpi-label">Ganancia Total<br>Neta Produbanco</div><div class="kpi-val-real" style="color: {color_neta_produ};">${gan_neta_produ:.2f}</div></div>
+<div class="kpi-card-highlight"><div class="kpi-label" style="color: #00E676;">Ganancia Total<br>Neta Todas</div><div class="kpi-val-gan-total" style="color: {color_neta_total};">${gan_neta_total:.2f}</div></div>
+</div>
+<div class="kpi-subtitle">🏦 Ganancia Real en Cuenta</div>
+<div class="kpi-grid">
+<div class="kpi-card"><div class="kpi-label">Ganancia Real<br>Cuenta Amex</div><div class="kpi-val-real">${gan_real_amex:.2f}</div></div>
+<div class="kpi-card"><div class="kpi-label">Ganancia Real<br>Cuenta Produbanco</div><div class="kpi-val-real">${gan_real_produ:.2f}</div></div>
+<div class="kpi-card"><div class="kpi-label">Ganancia Real<br>Cuenta Todas</div><div class="kpi-val-teo">${gan_real_total:.2f}</div></div>
+</div>
+<div class="kpi-subtitle">🎁 Beneficios y Gastos</div>
+<div class="kpi-grid">
+<div class="kpi-card"><div class="kpi-label">Maxidólares<br>Produbanco</div><div class="kpi-val-real">${maxidolares_produ:.2f}</div></div>
+<div class="kpi-card"><div class="kpi-label">Gastos Transfer.<br>Totales</div><div class="kpi-val-gasto">${gastos_transf_total:.2f}</div></div>
+</div>
+</div>"""
+    st.markdown(kpi_general_html, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
 # 3. TABLA RESUMEN: RESULTADOS PAGOS TODAS LAS TARJETAS
 # ---------------------------------------------------------
 st.markdown("<h4 style='color: #00D1B2 !important; margin-top: 10px; margin-bottom: 2px;'>📊 Resultados Pagos Todas Las Tarjetas</h4>", unsafe_allow_html=True)
